@@ -1,0 +1,7 @@
+{
+  "welcome": "ஸ்மார்ட் பட்ஜெட் செயலியில் வரவேற்கிறோம்",
+  "add_expense": {
+    "path": "/add_expense",
+    "methods": ["POST", "OPTIONS"]
+  }
+}

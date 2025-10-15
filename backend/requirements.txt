@@ -1,0 +1,11 @@
+flask
+psycopg2-binary
+authlib
+werkzeug
+flask-cors
+python-dotenv
+bcrypt
+Flask-Cors
+Flask-Uploads
+Flask-Mail
+Flask-APScheduler

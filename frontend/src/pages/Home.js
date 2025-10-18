@@ -2,25 +2,17 @@ import React, { useEffect, useState } from "react";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// Navigation links for the navbar and footer
-const NAV_LINKS = [
-  { name: 'Home', href: '/home' },
-  { name: 'Add Expense', href: '/add-expense' },
-  { name: 'Expenses List', href: '/expenses-list' },
-  { name: 'Settings', href: '/settings' },
-  { name: 'Profile', href: '/profile' },
-];
-
 // Quick action cards for the homepage
 const QUICK_ACTIONS = [
-  { icon: '➕', title: 'Add Expense', desc: 'Log a new expense instantly.' },
-  { icon: '📊', title: 'View Reports', desc: 'Analyze your spending trends.' },
-  { icon: '📅', title: 'Upcoming Bills', desc: 'See upcoming payments.' },
-  { icon: '⚙️', title: 'Settings', desc: 'Customize your experience.' },
+  { icon: '➕', title: 'Add Expense', desc: 'Log a new expense', href: '/add-expense' },
+  { icon: '📊', title: 'View List', desc: 'See all expenses', href: '/expenses-list' },
+  { icon: '⚙️', title: 'Settings', desc: 'Customize app', href: '/settings' },
+  { icon: '👤', title: 'Profile', desc: 'Your account', href: '/profile' },
 ];
 
 export default function Home() {
   const [user, setUser] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -47,53 +39,73 @@ export default function Home() {
   };
 
   return (
-    <div style={{ fontFamily: 'Poppins, Inter, sans-serif', minHeight: '100vh', background: 'linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%)', display: 'flex', flexDirection: 'column' }}>
-      {/* Google Fonts */}
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
-
-      {/* Top Navigation Bar */}
-      <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.2rem 2.5rem', background: 'rgba(255,255,255,0.95)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+    <div style={{ 
+      fontFamily: 'Poppins, Inter, sans-serif', 
+      minHeight: '100vh', 
+      background: 'linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%)', 
+      display: 'flex', 
+      flexDirection: 'column',
+      paddingBottom: '80px'
+    }}>
+      
+      {/* Mobile Top Navigation Bar */}
+      <nav style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        padding: '1rem 1.25rem', 
+        background: 'rgba(255,255,255,0.98)', 
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)', 
+        position: 'sticky', 
+        top: 0, 
+        zIndex: 100 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <img src="https://img.icons8.com/color/48/000000/money-bag.png" alt="FinPal Logo" style={{ width: 32, height: 32 }} />
           <span style={{ fontWeight: 700, fontSize: '1.35rem', letterSpacing: '0.5px', color: '#1976d2' }}>FinPal</span>
         </div>
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
-          {NAV_LINKS.map(link => (
-            <a
-              key={link.name}
-              href={link.href}
-              style={{
-                fontSize: '1.08rem',
-                fontWeight: 600,
-                color: '#333',
-                textDecoration: 'none',
-                padding: '0.3rem 0.7rem',
-                borderRadius: '6px',
-                transition: 'background 0.2s, color 0.2s',
-              }}
-              onMouseOver={e => (e.target.style.background = '#e3f2fd', e.target.style.color = '#1976d2')}
-              onMouseOut={e => (e.target.style.background = 'none', e.target.style.color = '#333')}
-            >
-              {link.name}
-            </a>
-          ))}
-          <button
-            onClick={handleLogout}
-            style={{
-              background: '#f44336',
-              color: '#fff',
-              border: 'none',
-              padding: '0.5rem 1rem',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '0.9rem'
-            }}
-          >
-            Logout
-          </button>
-        </div>
+        
+        {/* Hamburger Menu */}
+        <button 
+          onClick={() => setMenuOpen(!menuOpen)}
+          style={{
+            background: 'none',
+            border: 'none',
+            fontSize: '1.5rem',
+            cursor: 'pointer',
+            padding: '0.5rem',
+            color: '#1976d2'
+          }}
+        >
+          {menuOpen ? '✕' : '☰'}
+        </button>
       </nav>
+
+      {/* Mobile Menu Dropdown */}
+      {menuOpen && (
+        <div style={{
+          position: 'fixed',
+          top: '60px',
+          right: 0,
+          left: 0,
+          background: 'rgba(255,255,255,0.98)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          zIndex: 99,
+          padding: '1rem',
+          animation: 'slideDown 0.3s ease-out'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <a href="/home" style={{ padding: '0.75rem', color: '#333', textDecoration: 'none', fontSize: '1rem', fontWeight: 600, borderRadius: '8px', background: '#f5f7fa' }}>🏠 Home</a>
+            <a href="/add-expense" style={{ padding: '0.75rem', color: '#333', textDecoration: 'none', fontSize: '1rem', fontWeight: 600, borderRadius: '8px', background: '#f5f7fa' }}>➕ Add Expense</a>
+            <a href="/expenses-list" style={{ padding: '0.75rem', color: '#333', textDecoration: 'none', fontSize: '1rem', fontWeight: 600, borderRadius: '8px', background: '#f5f7fa' }}>📊 Expenses List</a>
+            <a href="/settings" style={{ padding: '0.75rem', color: '#333', textDecoration: 'none', fontSize: '1rem', fontWeight: 600, borderRadius: '8px', background: '#f5f7fa' }}>⚙️ Settings</a>
+            <a href="/profile" style={{ padding: '0.75rem', color: '#333', textDecoration: 'none', fontSize: '1rem', fontWeight: 600, borderRadius: '8px', background: '#f5f7fa' }}>👤 Profile</a>
+            <button onClick={handleLogout} style={{ padding: '0.75rem', background: '#f44336', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem', fontWeight: 600 }}>
+              🚪 Logout
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Hero Section */}
       <section style={{ textAlign: 'center', margin: '3.5rem 0 2.5rem 0', padding: '0 1rem' }}>

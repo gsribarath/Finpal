@@ -9,27 +9,27 @@ function Welcome() {
       alignItems: 'center', 
       justifyContent: 'center', 
       background: 'linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%)',
-      fontFamily: 'Poppins, Inter, sans-serif'
+      fontFamily: 'Poppins, Inter, sans-serif',
+      padding: '20px'
     }}>
-      {/* Google Fonts */}
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
       
       <div style={{ 
         background: '#fff', 
-        padding: '60px 40px', 
+        padding: window.innerWidth <= 480 ? '40px 25px' : '60px 40px', 
         borderRadius: '20px', 
         boxShadow: '0 20px 40px rgba(0,0,0,0.08)', 
+        width: '100%',
         maxWidth: '500px', 
         textAlign: 'center' 
       }}>
         <div style={{ marginBottom: '40px' }}>
           {/* FinPal Logo */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '20px' }}>
-            <img src="https://img.icons8.com/color/48/000000/money-bag.png" alt="FinPal Logo" style={{ width: 48, height: 48 }} />
+            <img src="https://img.icons8.com/color/48/000000/money-bag.png" alt="FinPal Logo" style={{ width: window.innerWidth <= 480 ? 40 : 48, height: window.innerWidth <= 480 ? 40 : 48 }} />
             <h1 style={{ 
               margin: 0, 
               color: '#1976d2', 
-              fontSize: '36px',
+              fontSize: window.innerWidth <= 480 ? '28px' : '36px',
               fontWeight: '700',
               letterSpacing: '0.5px'
             }}>FinPal</h1>
@@ -38,7 +38,7 @@ function Welcome() {
           <p style={{ 
             margin: 0, 
             color: '#666', 
-            fontSize: '18px',
+            fontSize: window.innerWidth <= 480 ? '15px' : '18px',
             lineHeight: '1.6'
           }}>Take control of your finances with our intelligent budgeting app. Track expenses, set goals, and achieve financial freedom.</p>
         </div>

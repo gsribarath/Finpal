@@ -67,30 +67,30 @@ function Register() {
       alignItems: 'center', 
       justifyContent: 'center', 
       background: 'linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%)',
-      fontFamily: 'Poppins, Inter, sans-serif'
+      fontFamily: 'Poppins, Inter, sans-serif',
+      padding: '20px'
     }}>
-      {/* Google Fonts */}
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
       
       <div style={{ 
         background: '#fff', 
-        padding: '40px', 
+        padding: window.innerWidth <= 480 ? '30px 20px' : '40px', 
         borderRadius: '20px', 
         boxShadow: '0 15px 40px rgba(0,0,0,0.08)', 
-        width: '400px', 
+        width: '100%',
+        maxWidth: '400px', 
         textAlign: 'center' 
       }}>
         <div style={{ marginBottom: '30px' }}>
           {/* FinPal Logo */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', marginBottom: '20px' }}>
             <img src="https://img.icons8.com/color/48/000000/money-bag.png" alt="FinPal Logo" style={{ width: 40, height: 40 }} />
-            <span style={{ fontWeight: 700, fontSize: '1.8rem', letterSpacing: '0.5px', color: '#1976d2' }}>FinPal</span>
+            <span style={{ fontWeight: 700, fontSize: window.innerWidth <= 480 ? '1.5rem' : '1.8rem', letterSpacing: '0.5px', color: '#1976d2' }}>FinPal</span>
           </div>
           
           <h2 style={{ 
             margin: '0 0 10px 0', 
             color: '#333', 
-            fontSize: '28px',
+            fontSize: window.innerWidth <= 480 ? '24px' : '28px',
             fontWeight: '600'
           }}>Join FinPal!</h2>
           <p style={{ 

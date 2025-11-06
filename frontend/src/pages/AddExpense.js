@@ -66,36 +66,28 @@ export default function AddExpense() {
   }, [navigate]);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setForm(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!form.category || !form.amount || !form.payment_mode) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
     setLoading(true);
     
     try {
-      const response = await axios.post("http://localhost:5000/add_expense", form, {
+      await axios.post("http://localhost:5000/add_expense", form, {
         withCredentials: true,
         headers: { "Content-Type": "application/json" }
       });
       
       // Update monthly total
       const expenseAmount = parseFloat(form.amount);
-      setMonthlyTotal(prev => {
-        const updated = prev + expenseAmount;
-        sessionStorage.setItem('finpal_monthlyTotal', updated.toString());
-        return updated;
-      });
+      const newTotal = monthlyTotal + expenseAmount;
+      setMonthlyTotal(newTotal);
+      sessionStorage.setItem('finpal_monthlyTotal', newTotal.toString());
       
       alert("💰 Expense Added Successfully!");
       
@@ -132,7 +124,7 @@ export default function AddExpense() {
       <div style={{ padding: '1.5rem 1.25rem', maxWidth: '600px', margin: '0 auto' }}>
         
         {/* Page Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <h1 style={{ 
             fontSize: window.innerWidth <= 480 ? '1.8rem' : '2.2rem', 
             fontWeight: 700, 
@@ -140,32 +132,36 @@ export default function AddExpense() {
             marginBottom: '0.5rem', 
             letterSpacing: '0.3px' 
           }}>
-            Add a New Expense
+            ➕ Add Expense
           </h1>
           <p style={{ 
             fontSize: '0.95rem', 
             color: '#666', 
             lineHeight: '1.5' 
           }}>
-            Track your expenses instantly and maintain your personal budget with ease.
+            Track your spending easily
           </p>
         </div>
 
-        {/* Welcome Message */}
+        {/* Monthly Total Summary */}
         {user && (
           <div style={{ 
-            background: 'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)', 
-            padding: '1.25rem', 
+            background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)', 
+            padding: '1.5rem', 
             borderRadius: '16px', 
             marginBottom: '1.5rem',
-            textAlign: 'center'
+            textAlign: 'center',
+            color: 'white'
           }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#1976d2' }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', opacity: 0.9 }}>
               Welcome back, {user.name}! 👋
             </h3>
-            <p style={{ margin: 0, fontSize: '1rem', color: '#666' }}>
-              Monthly Total: <span style={{ fontWeight: 700, color: '#d32f2f' }}>₹{monthlyTotal.toLocaleString()}</span>
-            </p>
+            <div style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              ₹{monthlyTotal.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>
+              Total expenses this month
+            </div>
           </div>
         )}
 
@@ -178,138 +174,91 @@ export default function AddExpense() {
         }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             
-            {/* Basic Info Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
-                  Name
-                </label>
-                <input
-                  type="text"
-                  name="user_name"
-                  value={form.user_name}
-                  onChange={handleChange}
-                  readOnly
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: '2px solid #e1e5e9',
-                    fontSize: '1rem',
-                    backgroundColor: '#f8f9fa',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-              
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  readOnly
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: '2px solid #e1e5e9',
-                    fontSize: '1rem',
-                    backgroundColor: '#f8f9fa',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
+            {/* Category */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
+                Category *
+              </label>
+              <select
+                name="category"
+                value={form.category}
+                onChange={handleChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '2px solid #e1e5e9',
+                  fontSize: '1rem',
+                  backgroundColor: 'white',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="">Select Category</option>
+                {CATEGORIES.map(cat => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.icon} {cat.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Category and Amount Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
-                  Category *
-                </label>
-                <select
-                  name="category"
-                  value={form.category}
-                  onChange={handleChange}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: '2px solid #e1e5e9',
-                    fontSize: '1rem',
-                    backgroundColor: 'white',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="">Select Category</option>
-                  {CATEGORIES.map(cat => (
-                    <option key={cat.value} value={cat.value}>
-                      {cat.icon} {cat.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
-                  Amount (₹) *
-                </label>
-                <input
-                  type="number"
-                  name="amount"
-                  value={form.amount}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: '2px solid #e1e5e9',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
+            {/* Amount */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
+                Amount (₹) *
+              </label>
+              <input
+                type="number"
+                name="amount"
+                value={form.amount}
+                onChange={handleChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                required
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '2px solid #e1e5e9',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
 
-            {/* Payment Mode and Date Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
-                  Payment Mode *
-                </label>
-                <select
-                  name="payment_mode"
-                  value={form.payment_mode}
-                  onChange={handleChange}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    border: '2px solid #e1e5e9',
-                    fontSize: '1rem',
-                    backgroundColor: 'white',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="">Select Payment Mode</option>
-                  {PAYMENT_MODES.map(mode => (
-                    <option key={mode.value} value={mode.value}>
-                      {mode.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Payment Mode */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
+                Payment Mode *
+              </label>
+              <select
+                name="payment_mode"
+                value={form.payment_mode}
+                onChange={handleChange}
+                required
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '2px solid #e1e5e9',
+                  fontSize: '1rem',
+                  backgroundColor: 'white',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="">Select Payment Mode</option>
+                {PAYMENT_MODES.map(mode => (
+                  <option key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
+            {/* Date and Time Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
                   Date
@@ -318,6 +267,26 @@ export default function AddExpense() {
                   type="date"
                   name="date"
                   value={form.date}
+                  onChange={handleChange}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#333' }}>
+                  Time
+                </label>
+                <input
+                  type="time"
+                  name="time"
+                  value={form.time}
                   onChange={handleChange}
                   style={{
                     width: '100%',
@@ -378,40 +347,74 @@ export default function AddExpense() {
           </form>
         </div>
 
-        {/* Quick Stats */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-          gap: '1rem',
+        {/* Quick Stats Section */}
+        <div style={{
+          background: 'white',
+          borderRadius: '20px',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
+          padding: '1.5rem',
           marginTop: '1.5rem'
         }}>
-          <div style={{ 
-            background: 'white', 
-            padding: '1rem', 
-            borderRadius: '12px', 
-            textAlign: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+          <h3 style={{ 
+            margin: '0 0 1.5rem 0', 
+            fontSize: '1.2rem', 
+            color: '#333', 
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
           }}>
-            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>💸</div>
-            <div style={{ fontSize: '0.85rem', color: '#666' }}>This Month</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#d32f2f' }}>
-              ₹{monthlyTotal.toLocaleString()}
-            </div>
-          </div>
+            📊 Quick Stats
+          </h3>
           
           <div style={{ 
-            background: 'white', 
-            padding: '1rem', 
-            borderRadius: '12px', 
-            textAlign: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '1rem'
           }}>
-            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>📊</div>
-            <div style={{ fontSize: '0.85rem', color: '#666' }}>View</div>
-            <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1976d2' }}>
-              <a href="/expenses-list" style={{ color: 'inherit', textDecoration: 'none' }}>
-                All Expenses
-              </a>
+            {/* Total Expenses */}
+            <div style={{
+              background: '#f8f9fa',
+              padding: '1.25rem 1rem',
+              borderRadius: '16px',
+              textAlign: 'center',
+              border: '2px solid #e1e5e9'
+            }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
+                �
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
+                Total Expenses
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1976d2' }}>
+                ₹{monthlyTotal.toLocaleString()}
+              </div>
+            </div>
+
+            {/* This Month */}
+            <div 
+              onClick={() => navigate('/expenses-list')}
+              style={{
+                background: '#f8f9fa',
+                padding: '1.25rem 1rem',
+                borderRadius: '16px',
+                textAlign: 'center',
+                border: '2px solid #e1e5e9',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
+                �
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
+                View All
+              </div>
+              <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1976d2' }}>
+                Expenses
+              </div>
             </div>
           </div>
         </div>
@@ -419,10 +422,10 @@ export default function AddExpense() {
 
       {/* Mobile tap effect */}
       <style>{`
-        button:active, input:focus, select:focus, textarea:focus {
+        button:active, a:active {
           transform: scale(0.98);
         }
-        
+
         input:focus, select:focus, textarea:focus {
           border-color: #1976d2 !important;
           outline: none;

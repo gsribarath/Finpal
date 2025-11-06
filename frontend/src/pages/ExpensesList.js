@@ -299,29 +299,77 @@ export default function ExpensesList() {
           </div>
         )}
 
-        {/* Add New Expense Button */}
-        {expenses.length > 0 && (
-          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-            <button
+        {/* Quick Stats Section */}
+        <div style={{
+          background: 'white',
+          borderRadius: '20px',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
+          padding: '1.5rem',
+          marginTop: '1.5rem'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 1.5rem 0', 
+            fontSize: '1.2rem', 
+            color: '#333', 
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            📊 Quick Stats
+          </h3>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '1rem'
+          }}>
+            {/* Total Expenses */}
+            <div style={{
+              background: '#f8f9fa',
+              padding: '1.25rem 1rem',
+              borderRadius: '16px',
+              textAlign: 'center',
+              border: '2px solid #e1e5e9'
+            }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
+                📊
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
+                Total Expenses
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1976d2' }}>
+                ₹{getTotalExpenses().toLocaleString()}
+              </div>
+            </div>
+
+            {/* Transaction Count */}
+            <div 
               onClick={() => navigate('/add-expense')}
               style={{
-                background: 'linear-gradient(90deg, #43e97b 0%, #38f9d7 100%)',
-                color: 'white',
-                border: 'none',
-                padding: '1rem 2rem',
-                borderRadius: '30px',
-                fontSize: '1rem',
-                fontWeight: 600,
+                background: '#f8f9fa',
+                padding: '1.25rem 1rem',
+                borderRadius: '16px',
+                textAlign: 'center',
+                border: '2px solid #e1e5e9',
                 cursor: 'pointer',
-                boxShadow: '0 4px 16px rgba(67,233,123,0.3)',
-                width: '100%',
-                maxWidth: '300px'
+                transition: 'all 0.2s'
               }}
+              onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              ➕ Add New Expense
-            </button>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
+                ➕
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
+                Add New
+              </div>
+              <div style={{ fontSize: '1rem', fontWeight: 600, color: '#4caf50' }}>
+                Expense
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Mobile tap effect */}

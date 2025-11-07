@@ -8,6 +8,7 @@ import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Welcome from "./pages/Welcome";
+import FamilyMode from "./pages/FamilyMode";
 import { useTranslation } from 'react-i18next';
 import RequireAuth from "./RequireAuth";
 
@@ -42,6 +43,11 @@ function App() {
         <Route path="/profile" element={
           <RequireAuth>
             <Profile />
+          </RequireAuth>
+        } />
+        <Route path="/family-mode" element={
+          <RequireAuth>
+            <FamilyMode />
           </RequireAuth>
         } />
         <Route path="/" element={<Navigate to="/welcome" />} />

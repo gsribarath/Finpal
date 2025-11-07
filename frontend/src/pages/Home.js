@@ -40,10 +40,20 @@ const IconWallet = () => (
   </svg>
 );
 
+const IconFamily = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
+
 // Quick action cards for the homepage
 const QUICK_ACTIONS = [
   { icon: <IconPlus />, title: 'Add Expense', desc: 'Log a new expense', href: '/add-expense' },
   { icon: <IconChart />, title: 'View List', desc: 'See all expenses', href: '/expenses-list' },
+  { icon: <IconFamily />, title: 'Family Mode', desc: 'Connect & track together', href: '/family-mode', isNew: true },
   { icon: <IconSettings />, title: 'Settings', desc: 'Customize app', href: '/settings' },
   { icon: <IconUser />, title: 'Profile', desc: 'Your account', href: '/profile' },
 ];
@@ -165,9 +175,10 @@ export default function Home() {
             key={action.title}
             onClick={() => navigate(action.href)}
             style={{
-              background: '#fff',
+              background: action.isNew ? 'linear-gradient(135deg, #1976d2 0%, #4caf50 100%)' : '#fff',
+              color: action.isNew ? '#fff' : 'inherit',
               borderRadius: '16px',
-              boxShadow: '0 2px 12px rgba(67,233,123,0.10)',
+              boxShadow: action.isNew ? '0 8px 25px rgba(25,118,210,0.3)' : '0 2px 12px rgba(67,233,123,0.10)',
               minHeight: window.innerWidth <= 480 ? '120px' : '140px',
               display: 'flex',
               flexDirection: 'column',
@@ -177,11 +188,46 @@ export default function Home() {
               cursor: 'pointer',
               transition: 'transform 0.18s, box-shadow 0.18s',
               fontWeight: 500,
+              position: 'relative',
+              overflow: 'hidden'
             }}
           >
-            <div style={{ color: '#1976d2', marginBottom: '0.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>{action.icon}</div>
-            <div style={{ fontWeight: 700, fontSize: window.innerWidth <= 480 ? '0.9rem' : '1rem', color: '#1976d2', marginBottom: '0.35rem', textAlign: 'center' }}>{action.title}</div>
-            <div style={{ color: '#666', fontSize: window.innerWidth <= 480 ? '0.75rem' : '0.85rem', textAlign: 'center' }}>{action.desc}</div>
+            {action.isNew && (
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'rgba(255,255,255,0.9)',
+                color: '#1976d2',
+                fontSize: '10px',
+                fontWeight: '700',
+                padding: '2px 6px',
+                borderRadius: '8px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                NEW
+              </div>
+            )}
+            <div style={{ 
+              color: action.isNew ? 'rgba(255,255,255,0.9)' : '#1976d2', 
+              marginBottom: '0.5rem', 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center' 
+            }}>{action.icon}</div>
+            <div style={{ 
+              fontWeight: 700, 
+              fontSize: window.innerWidth <= 480 ? '0.9rem' : '1rem', 
+              color: action.isNew ? '#fff' : '#1976d2', 
+              marginBottom: '0.35rem', 
+              textAlign: 'center' 
+            }}>{action.title}</div>
+            <div style={{ 
+              color: action.isNew ? 'rgba(255,255,255,0.8)' : '#666', 
+              fontSize: window.innerWidth <= 480 ? '0.75rem' : '0.85rem', 
+              textAlign: 'center' 
+            }}>{action.desc}</div>
           </div>
         ))}
       </section>

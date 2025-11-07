@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 
+// Wallet Icon Component (matching Home page style)
+const IconWallet = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
+    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
+    <circle cx="18" cy="12" r="2"/>
+  </svg>
+);
+
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -79,9 +88,27 @@ function Login() {
       }}>
         <div style={{ marginBottom: '30px' }}>
           {/* FinPal Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', marginBottom: '20px' }}>
-            <img src="https://img.icons8.com/color/48/000000/money-bag.png" alt="FinPal Logo" style={{ width: 40, height: 40 }} />
-            <span style={{ fontWeight: 700, fontSize: window.innerWidth <= 480 ? '1.5rem' : '1.8rem', letterSpacing: '0.5px', color: '#1976d2' }}>FinPal</span>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '0.8rem', 
+            marginBottom: '20px' 
+          }}>
+            <div style={{ 
+              color: '#1976d2', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}>
+              <IconWallet />
+            </div>
+            <span style={{ 
+              fontWeight: 700, 
+              fontSize: window.innerWidth <= 480 ? '1.5rem' : '1.8rem', 
+              letterSpacing: '0.5px', 
+              color: '#1976d2' 
+            }}>FinPal</span>
           </div>
           
           <h2 style={{ 

@@ -24,3 +24,6 @@ export type { IAchievement } from './Achievement';
 
 export { UpiPayment } from './UpiPayment';
 export type { IUpiPayment } from './UpiPayment';
+
+export { MerchantCategoryRule } from './MerchantCategoryRule';
+export type { IMerchantCategoryRule } from './MerchantCategoryRule';

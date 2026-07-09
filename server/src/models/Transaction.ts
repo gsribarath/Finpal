@@ -5,6 +5,10 @@ export interface ITransaction extends Document {
   user: mongoose.Types.ObjectId;
   amount: number;
   category: string;
+  categoryConfidence?: number;
+  matchedKeyword?: string;
+  matchedMerchant?: string;
+  normalizedMerchant?: string;
   merchant: string;
   date: Date;
   type: 'expense' | 'income';
@@ -47,6 +51,23 @@ const transactionSchema = new Schema<ITransaction>(
         'Gift',
         'Other',
       ],
+    },
+    categoryConfidence: {
+      type: Number,
+      min: 0,
+      max: 1,
+    },
+    matchedKeyword: {
+      type: String,
+      trim: true,
+    },
+    matchedMerchant: {
+      type: String,
+      trim: true,
+    },
+    normalizedMerchant: {
+      type: String,
+      trim: true,
     },
     merchant: {
       type: String,

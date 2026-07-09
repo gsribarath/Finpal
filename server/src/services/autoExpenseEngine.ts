@@ -81,6 +81,10 @@ export async function processPaymentToExpense(
       user: new mongoose.Types.ObjectId(data.userId),
       amount: data.amount,
       category: categorization.category,
+      categoryConfidence: categorization.confidence,
+      matchedKeyword: categorization.matchedKeyword,
+      matchedMerchant: categorization.matchedMerchant,
+      normalizedMerchant: categorization.normalizedMerchant,
       merchant: data.merchant,
       date: transactionDate,
       type: 'expense',
@@ -100,6 +104,10 @@ export async function processPaymentToExpense(
           transactionId: transaction._id,
           aiCategory: categorization.category,
           aiConfidence: categorization.confidence,
+          categoryConfidence: categorization.confidence,
+          matchedKeyword: categorization.matchedKeyword,
+          matchedMerchant: categorization.matchedMerchant,
+          normalizedMerchant: categorization.normalizedMerchant,
           method: data.method || 'upi',
           vpa: data.vpa,
           email: data.email,
@@ -365,6 +373,10 @@ export async function recategorizeExistingPayments(
           await Transaction.findByIdAndUpdate(payment.transactionId, {
             $set: {
               category: categorization.category,
+              categoryConfidence: categorization.confidence,
+              matchedKeyword: categorization.matchedKeyword,
+              matchedMerchant: categorization.matchedMerchant,
+              normalizedMerchant: categorization.normalizedMerchant,
             },
           });
         }

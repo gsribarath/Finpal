@@ -24,6 +24,10 @@ export interface IUpiPayment extends Document {
   // AI categorization
   aiCategory?: string;
   aiConfidence?: number;
+  categoryConfidence?: number;
+  matchedKeyword?: string;
+  matchedMerchant?: string;
+  normalizedMerchant?: string;
   categoryOverridden?: boolean;
   // Metadata
   method?: string; // upi, card, netbanking etc.
@@ -121,6 +125,23 @@ const upiPaymentSchema = new Schema<IUpiPayment>(
       type: Number,
       min: 0,
       max: 1,
+    },
+    categoryConfidence: {
+      type: Number,
+      min: 0,
+      max: 1,
+    },
+    matchedKeyword: {
+      type: String,
+      trim: true,
+    },
+    matchedMerchant: {
+      type: String,
+      trim: true,
+    },
+    normalizedMerchant: {
+      type: String,
+      trim: true,
     },
     categoryOverridden: {
       type: Boolean,

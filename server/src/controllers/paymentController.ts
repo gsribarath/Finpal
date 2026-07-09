@@ -19,7 +19,11 @@ import {
   getUpiSpendingSummary,
   recategorizeExistingPayments,
 } from '../services/autoExpenseEngine';
-import { categorizeTransaction } from '../services/aiCategorizationService';
+import {
+  categorizeTransaction,
+  normalizeMerchantName,
+  recordMerchantCategoryRule,
+} from '../services/aiCategorizationService';
 import { generateSmartInsights } from '../services/smartBudgetIntelligence';
 import config from '../config';
 
@@ -485,11 +489,28 @@ export const overrideCategory = async (req: Request, res: Response) => {
         .json({ success: false, message: 'Category is required' });
     }
 
+    const existingPayment = await UpiPayment.findOne({ _id: id, user: userId })
+      .select('merchant description transactionId')
+      .lean();
+
+    if (!existingPayment) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Payment not found' });
+    }
+
+    const normalizedMerchant = normalizeMerchantName(existingPayment.merchant);
+
     const payment = await UpiPayment.findOneAndUpdate(
       { _id: id, user: userId },
       {
         aiCategory: category,
+        aiConfidence: 1,
+        categoryConfidence: 1,
         categoryOverridden: true,
+        matchedKeyword: existingPayment.description || existingPayment.merchant,
+        matchedMerchant: existingPayment.merchant,
+        normalizedMerchant,
       },
       { new: true }
     ).select('-razorpaySignature');
@@ -504,8 +525,20 @@ export const overrideCategory = async (req: Request, res: Response) => {
     if (payment.transactionId) {
       await Transaction.findByIdAndUpdate(payment.transactionId, {
         category,
+        categoryConfidence: 1,
+        matchedKeyword: existingPayment.description || payment.merchant,
+        matchedMerchant: payment.merchant,
+        normalizedMerchant,
       });
     }
+
+    await recordMerchantCategoryRule({
+      merchant: payment.merchant,
+      category,
+      confidenceScore: 1,
+      matchedMerchant: payment.merchant,
+      matchedKeyword: existingPayment.description || payment.merchant,
+    });
 
     return res.status(200).json({
       success: true,

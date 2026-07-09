@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { Transaction } from '../models';
+import {
+  normalizeMerchantName,
+  recordMerchantCategoryRule,
+} from '../services/aiCategorizationService';
 
 // @desc    Get all transactions for user
 // @route   GET /api/transactions
@@ -137,18 +141,48 @@ export const updateTransaction = async (req: Request, res: Response): Promise<vo
     const userId = (req as any).user._id;
     const { amount, category, merchant, date, type, paymentMethod, notes } = req.body;
 
-    const transaction = await Transaction.findOneAndUpdate(
-      { _id: req.params.id, user: userId },
-      { amount, category, merchant, date, type, paymentMethod, notes },
-      { new: true, runValidators: true }
-    );
+    const existingTransaction = await Transaction.findOne({
+      _id: req.params.id,
+      user: userId,
+    }).lean();
 
-    if (!transaction) {
+    if (!existingTransaction) {
       res.status(404).json({
         success: false,
         message: 'Transaction not found',
       });
       return;
+    }
+
+    const normalizedMerchant = normalizeMerchantName(merchant || existingTransaction.merchant);
+    const categoryChanged = category && category !== existingTransaction.category;
+
+    const transaction = await Transaction.findOneAndUpdate(
+      { _id: req.params.id, user: userId },
+      {
+        amount,
+        category,
+        categoryConfidence: category ? 1 : existingTransaction.categoryConfidence,
+        matchedKeyword: merchant || existingTransaction.merchant,
+        matchedMerchant: merchant || existingTransaction.merchant,
+        normalizedMerchant,
+        merchant,
+        date,
+        type,
+        paymentMethod,
+        notes,
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (categoryChanged && merchant) {
+      await recordMerchantCategoryRule({
+        merchant,
+        category,
+        confidenceScore: 1,
+        matchedMerchant: merchant,
+        matchedKeyword: merchant,
+      });
     }
 
     res.json({

@@ -14,6 +14,11 @@ import { UpiPayment } from '../models/UpiPayment';
 import { Budget } from '../models/Budget';
 import { categorizeTransaction, clearCategorizationCache } from './aiCategorizationService';
 import Family from '../models/Family';
+import {
+  extractQrMetadataFromNotes,
+  resolveExpenseCategoryFromQrMetadata,
+  type QrMerchantMetadata,
+} from '../utils/qrMetadata';
 
 interface PaymentData {
   userId: string;
@@ -23,6 +28,7 @@ interface PaymentData {
   merchant: string;
   description?: string;
   notes?: Record<string, string>;
+  qrMetadata?: QrMerchantMetadata | null;
   method?: string;
   vpa?: string;
   email?: string;
@@ -66,32 +72,57 @@ export async function processPaymentToExpense(
       };
     }
 
-    // 2. AI categorize the transaction
-    const categorization = await categorizeTransaction({
-      merchant: data.merchant,
-      description: data.description,
-      notes: data.notes ? Object.values(data.notes).join(' ') : undefined,
-      amount: data.amount,
-    });
+    const qrMetadata = data.qrMetadata || extractQrMetadataFromNotes(data.notes);
+    const structuredCategory = resolveExpenseCategoryFromQrMetadata(qrMetadata);
+
+    // 2. Use structured QR metadata when available; otherwise fall back to AI categorization
+    const categorization = structuredCategory
+      ? {
+          category: structuredCategory,
+          confidence: 1,
+          reasoning: 'Derived from structured QR metadata',
+          matchedKeyword: qrMetadata?.subcategory || qrMetadata?.merchantType || qrMetadata?.category,
+          matchedMerchant: qrMetadata?.merchantName || data.merchant,
+          normalizedMerchant: (qrMetadata?.merchantName || data.merchant).toLowerCase().trim(),
+          source: 'qr-metadata' as const,
+        }
+      : await categorizeTransaction({
+          merchant: data.merchant,
+          description: data.description,
+          notes: data.notes ? Object.values(data.notes).join(' ') : undefined,
+          amount: data.amount,
+        });
 
     const transactionDate = data.paidAt || new Date();
+    const merchantName = qrMetadata?.merchantName || data.merchant;
+    const verificationStatus = qrMetadata?.verified ? 'verified' : qrMetadata ? 'standard' : undefined;
 
     // 3. Create the Transaction record (expense)
     const transaction = await Transaction.create({
       user: new mongoose.Types.ObjectId(data.userId),
       amount: data.amount,
       category: categorization.category,
+      subcategory: qrMetadata?.subcategory,
       categoryConfidence: categorization.confidence,
       matchedKeyword: categorization.matchedKeyword,
       matchedMerchant: categorization.matchedMerchant,
       normalizedMerchant: categorization.normalizedMerchant,
-      merchant: data.merchant,
+      merchantId: qrMetadata?.merchantId,
+      merchant: merchantName,
+      merchantCategory: qrMetadata?.category,
+      merchantSubcategory: qrMetadata?.subcategory,
+      merchantType: qrMetadata?.merchantType,
+      merchantCity: qrMetadata?.city,
+      merchantState: qrMetadata?.state,
+      merchantUpiId: qrMetadata?.upiId || data.vpa,
+      merchantVerified: qrMetadata?.verified || false,
+      verificationStatus,
       date: transactionDate,
       type: 'expense',
       paymentMethod: 'upi',
       notes: data.description
         ? `[UPI Auto] ${data.description}`
-        : `[UPI Auto] Payment to ${data.merchant}`,
+        : `[UPI Auto] Payment to ${merchantName}`,
     });
 
     // 4. Update the UPI Payment record
@@ -108,6 +139,15 @@ export async function processPaymentToExpense(
           matchedKeyword: categorization.matchedKeyword,
           matchedMerchant: categorization.matchedMerchant,
           normalizedMerchant: categorization.normalizedMerchant,
+          merchantId: qrMetadata?.merchantId,
+          merchantCategory: qrMetadata?.category,
+          merchantSubcategory: qrMetadata?.subcategory,
+          merchantType: qrMetadata?.merchantType,
+          merchantCity: qrMetadata?.city,
+          merchantState: qrMetadata?.state,
+          merchantUpiId: qrMetadata?.upiId || data.vpa,
+          merchantVerified: qrMetadata?.verified || false,
+          verificationStatus,
           method: data.method || 'upi',
           vpa: data.vpa,
           email: data.email,

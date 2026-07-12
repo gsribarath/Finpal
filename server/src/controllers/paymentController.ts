@@ -24,6 +24,9 @@ import {
   normalizeMerchantName,
   recordMerchantCategoryRule,
 } from '../services/aiCategorizationService';
+import {
+  extractQrMetadataFromNotes,
+} from '../utils/qrMetadata';
 import { generateSmartInsights } from '../services/smartBudgetIntelligence';
 import config from '../config';
 
@@ -47,6 +50,7 @@ export const createPaymentOrder = async (req: Request, res: Response) => {
     }
 
     const { amount, merchant, description, notes } = req.body;
+    const qrMetadata = extractQrMetadataFromNotes(notes);
 
     if (!amount || amount < 1) {
       return res
@@ -81,6 +85,15 @@ export const createPaymentOrder = async (req: Request, res: Response) => {
       amount,
       merchant,
       description,
+      merchantId: qrMetadata?.merchantId,
+      merchantCategory: qrMetadata?.category,
+      merchantSubcategory: qrMetadata?.subcategory,
+      merchantType: qrMetadata?.merchantType,
+      merchantCity: qrMetadata?.city,
+      merchantState: qrMetadata?.state,
+      merchantUpiId: qrMetadata?.upiId,
+      merchantVerified: qrMetadata?.verified || false,
+      verificationStatus: qrMetadata?.verified ? 'verified' : qrMetadata ? 'standard' : undefined,
       notes,
       status: 'created',
     });
@@ -174,6 +187,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
       merchant: upiPayment.merchant,
       description: upiPayment.description,
       notes: upiPayment.notes,
+      qrMetadata: extractQrMetadataFromNotes(upiPayment.notes),
       method: (paymentDetails as any).method,
       vpa: (paymentDetails as any).vpa,
       email: (paymentDetails as any).email,
@@ -274,6 +288,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
           merchant: upiPayment.merchant,
           description: upiPayment.description,
           notes: payment.notes || upiPayment.notes,
+          qrMetadata: extractQrMetadataFromNotes((payment.notes || upiPayment.notes) as Record<string, string> | undefined),
           method: payment.method,
           vpa: payment.vpa,
           email: payment.email,

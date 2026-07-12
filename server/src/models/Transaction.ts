@@ -5,11 +5,21 @@ export interface ITransaction extends Document {
   user: mongoose.Types.ObjectId;
   amount: number;
   category: string;
+  subcategory?: string;
   categoryConfidence?: number;
   matchedKeyword?: string;
   matchedMerchant?: string;
   normalizedMerchant?: string;
+  merchantId?: string;
   merchant: string;
+  merchantCategory?: string;
+  merchantSubcategory?: string;
+  merchantType?: string;
+  merchantCity?: string;
+  merchantState?: string;
+  merchantUpiId?: string;
+  merchantVerified?: boolean;
+  verificationStatus?: string;
   date: Date;
   type: 'expense' | 'income';
   paymentMethod: 'cash' | 'upi' | 'card' | 'netbanking' | 'other';
@@ -57,6 +67,11 @@ const transactionSchema = new Schema<ITransaction>(
       min: 0,
       max: 1,
     },
+    subcategory: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
     matchedKeyword: {
       type: String,
       trim: true,
@@ -69,11 +84,55 @@ const transactionSchema = new Schema<ITransaction>(
       type: String,
       trim: true,
     },
+    merchantId: {
+      type: String,
+      trim: true,
+      maxlength: 50,
+    },
     merchant: {
       type: String,
       required: [true, 'Merchant/Description is required'],
       trim: true,
       maxlength: [100, 'Merchant name cannot exceed 100 characters'],
+    },
+    merchantCategory: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+    merchantSubcategory: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+    merchantType: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+    merchantCity: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+    merchantState: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+    merchantUpiId: {
+      type: String,
+      trim: true,
+      maxlength: 150,
+    },
+    merchantVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationStatus: {
+      type: String,
+      trim: true,
+      maxlength: 50,
     },
     date: {
       type: Date,

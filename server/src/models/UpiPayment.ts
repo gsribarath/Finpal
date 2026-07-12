@@ -17,6 +17,14 @@ export interface IUpiPayment extends Document {
   // Merchant/payee info
   merchant: string;
   merchantCategory?: string;
+  merchantSubcategory?: string;
+  merchantId?: string;
+  merchantType?: string;
+  merchantCity?: string;
+  merchantState?: string;
+  merchantUpiId?: string;
+  merchantVerified?: boolean;
+  verificationStatus?: string;
   description?: string;
   // Linked records
   transactionId?: mongoose.Types.ObjectId; // Link to auto-created Transaction
@@ -101,6 +109,38 @@ const upiPaymentSchema = new Schema<IUpiPayment>(
       maxlength: 200,
     },
     merchantCategory: {
+      type: String,
+      trim: true,
+    },
+    merchantSubcategory: {
+      type: String,
+      trim: true,
+    },
+    merchantId: {
+      type: String,
+      trim: true,
+    },
+    merchantType: {
+      type: String,
+      trim: true,
+    },
+    merchantCity: {
+      type: String,
+      trim: true,
+    },
+    merchantState: {
+      type: String,
+      trim: true,
+    },
+    merchantUpiId: {
+      type: String,
+      trim: true,
+    },
+    merchantVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationStatus: {
       type: String,
       trim: true,
     },

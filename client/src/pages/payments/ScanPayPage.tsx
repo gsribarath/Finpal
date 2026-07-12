@@ -29,6 +29,33 @@ interface PaymentFormData {
   description: string
 }
 
+interface MerchantQrMetadata {
+  merchantId?: string
+  merchantName?: string
+  upiId?: string
+  category?: string
+  subcategory?: string
+  city?: string
+  state?: string
+  merchantType?: string
+  verified?: boolean
+}
+
+interface ParsedMerchantScanData {
+  kind: 'structured' | 'upi'
+  merchantName: string
+  upiId?: string
+  category?: string
+  subcategory?: string
+  city?: string
+  state?: string
+  merchantType?: string
+  merchantId?: string
+  verified?: boolean
+  upi?: ParsedUpiData
+  rawText: string
+}
+
 interface ParsedUpiData {
   pa?: string
   pn?: string
@@ -38,6 +65,225 @@ interface ParsedUpiData {
   mc?: string
   tr?: string
   url?: string
+}
+
+interface ImagePreprocessOptions {
+  rotateDegrees?: number
+  cropRatio?: number
+  contrast?: number
+  brightness?: number
+  grayscale?: boolean
+  threshold?: boolean
+}
+
+const DEMO_MERCHANT_PROFILE = {
+  merchantId: 'FPM00001',
+  merchantName: 'SARAVANA BHAVAN',
+  upiId: 'saravanabhavan@okaxis',
+  category: 'Food',
+  subcategory: 'Restaurant',
+  city: 'Coimbatore',
+  state: 'Tamil Nadu',
+  merchantType: 'Restaurant',
+  verified: true,
+} as const
+
+function normalizeMerchantText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9@]+/g, '')
+}
+
+function isDemoMerchantValue(value?: string): boolean {
+  if (!value) return false
+  const normalized = normalizeMerchantText(value)
+  return normalized.includes('saravanabhavan') || normalized.includes('saravanabhavan@okaxis') || normalized.includes('fpm00001')
+}
+
+function applyDemoMerchantMetadata(base: Partial<ParsedMerchantScanData> & { rawText: string }): ParsedMerchantScanData {
+  return {
+    kind: base.kind || 'structured',
+    merchantName: DEMO_MERCHANT_PROFILE.merchantName,
+    upiId: DEMO_MERCHANT_PROFILE.upiId,
+    category: DEMO_MERCHANT_PROFILE.category,
+    subcategory: DEMO_MERCHANT_PROFILE.subcategory,
+    city: DEMO_MERCHANT_PROFILE.city,
+    state: DEMO_MERCHANT_PROFILE.state,
+    merchantType: DEMO_MERCHANT_PROFILE.merchantType,
+    merchantId: DEMO_MERCHANT_PROFILE.merchantId,
+    verified: DEMO_MERCHANT_PROFILE.verified,
+    upi: base.upi,
+    rawText: base.rawText,
+  }
+}
+
+function isLikelyBlurry(image: HTMLImageElement | ImageBitmap): boolean {
+  const width = 'naturalWidth' in image ? image.naturalWidth : image.width
+  const height = 'naturalHeight' in image ? image.naturalHeight : image.height
+  return width < 220 || height < 220
+}
+
+async function fileToImageBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
+  if ('createImageBitmap' in window) {
+    return await createImageBitmap(file)
+  }
+
+  return await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new window.Image()
+    image.onload = () => resolve(image)
+    image.onerror = reject
+    image.src = URL.createObjectURL(file)
+  })
+}
+
+async function preprocessQrImage(file: File, options: ImagePreprocessOptions = {}): Promise<Blob> {
+  const image = await fileToImageBitmap(file)
+  const baseWidth = 'naturalWidth' in image ? image.naturalWidth : image.width
+  const baseHeight = 'naturalHeight' in image ? image.naturalHeight : image.height
+  const rotateDegrees = options.rotateDegrees || 0
+  const cropRatio = options.cropRatio || 1
+  const outputWidth = Math.max(320, Math.round(baseWidth * cropRatio))
+  const outputHeight = Math.max(320, Math.round(baseHeight * cropRatio))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = rotateDegrees % 180 === 0 ? outputWidth : outputHeight
+  canvas.height = rotateDegrees % 180 === 0 ? outputHeight : outputWidth
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas unavailable')
+
+  ctx.save()
+  ctx.translate(canvas.width / 2, canvas.height / 2)
+  ctx.rotate((rotateDegrees * Math.PI) / 180)
+  const drawWidth = outputWidth
+  const drawHeight = outputHeight
+  const sourceWidth = baseWidth * cropRatio
+  const sourceHeight = baseHeight * cropRatio
+  const sourceX = (baseWidth - sourceWidth) / 2
+  const sourceY = (baseHeight - sourceHeight) / 2
+
+  ctx.filter = `contrast(${options.contrast ?? 1.25}) brightness(${options.brightness ?? 1.05}) ${options.grayscale ? 'grayscale(1)' : ''}`.trim()
+  ctx.drawImage(
+    image as CanvasImageSource,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    -drawWidth / 2,
+    -drawHeight / 2,
+    drawWidth,
+    drawHeight
+  )
+  ctx.restore()
+
+  if (options.threshold) {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const pixels = imageData.data
+    for (let index = 0; index < pixels.length; index += 4) {
+      const luminance = pixels[index] * 0.299 + pixels[index + 1] * 0.587 + pixels[index + 2] * 0.114
+      const value = luminance > 168 ? 255 : 0
+      pixels[index] = value
+      pixels[index + 1] = value
+      pixels[index + 2] = value
+      pixels[index + 3] = 255
+    }
+    ctx.putImageData(imageData, 0, 0)
+  }
+
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) reject(new Error('Failed to preprocess QR image'))
+      else resolve(blob)
+    }, 'image/png', 1)
+  })
+}
+
+async function detectQrWithBarcodeDetector(source: ImageBitmap | HTMLImageElement): Promise<string | null> {
+  const BarcodeDetectorCtor = (window as any).BarcodeDetector
+  if (!BarcodeDetectorCtor) return null
+
+  try {
+    const detector = new BarcodeDetectorCtor({ formats: ['qr_code'] })
+    const results = await detector.detect(source)
+    return results?.[0]?.rawValue || null
+  } catch {
+    return null
+  }
+}
+
+async function decodeQrImageFile(file: File): Promise<string> {
+  if (!html5QrcodeRefGlobal.current) throw new Error('QR decoder unavailable')
+
+  const attemptFiles: File[] = [file]
+  const baseVariants: ImagePreprocessOptions[] = [
+    { grayscale: true, contrast: 1.4, brightness: 1.05 },
+    { grayscale: true, contrast: 1.8, brightness: 1.1, threshold: true },
+  ]
+
+  const baseImage = await fileToImageBitmap(file)
+
+  const directDetectorResult = await detectQrWithBarcodeDetector(baseImage)
+  if (directDetectorResult) return directDetectorResult
+
+  for (const variant of baseVariants) {
+    try {
+      const blob = await preprocessQrImage(file, variant)
+      attemptFiles.push(new File([blob], 'processed-qr.png', { type: 'image/png' }))
+    } catch {
+      // Ignore preprocessing failures and continue with the original file
+    }
+  }
+
+  const rotations: Array<0 | 90 | 180 | 270> = [0, 90, 180, 270]
+  const crops = [1, 0.92, 0.8]
+
+  for (const attemptFile of attemptFiles) {
+    for (const cropRatio of crops) {
+      for (const rotateDegrees of rotations) {
+        try {
+          const blob = attemptFile === file && cropRatio === 1 && rotateDegrees === 0
+            ? null
+            : await preprocessQrImage(attemptFile, { cropRatio, rotateDegrees, grayscale: true, contrast: 1.35, brightness: 1.08, threshold: cropRatio < 1 })
+          const fileToScan = blob ? new File([blob], 'qr-attempt.png', { type: 'image/png' }) : attemptFile
+          if (blob) {
+            const blobImage = await fileToImageBitmap(fileToScan)
+            const detectorResult = await detectQrWithBarcodeDetector(blobImage)
+            if (detectorResult) return detectorResult
+          }
+          const result = await html5QrcodeRefGlobal.current.scanFile(fileToScan, true)
+          if (result) return result
+        } catch {
+          continue
+        }
+      }
+    }
+  }
+
+  throw new Error('Unable to read this QR. Please try another image.')
+}
+
+const html5QrcodeRefGlobal: { current: Html5Qrcode | null } = { current: null }
+
+function parseStructuredMerchantMetadata(data: string): MerchantQrMetadata | null {
+  try {
+    const parsed = JSON.parse(data)
+    if (!parsed || typeof parsed !== 'object') return null
+
+    const metadata: MerchantQrMetadata = {
+      merchantId: typeof parsed.merchantId === 'string' ? parsed.merchantId : undefined,
+      merchantName: typeof parsed.merchantName === 'string' ? parsed.merchantName : undefined,
+      upiId: typeof parsed.upiId === 'string' ? parsed.upiId : undefined,
+      category: typeof parsed.category === 'string' ? parsed.category : undefined,
+      subcategory: typeof parsed.subcategory === 'string' ? parsed.subcategory : undefined,
+      city: typeof parsed.city === 'string' ? parsed.city : undefined,
+      state: typeof parsed.state === 'string' ? parsed.state : undefined,
+      merchantType: typeof parsed.merchantType === 'string' ? parsed.merchantType : undefined,
+      verified: typeof parsed.verified === 'boolean' ? parsed.verified : undefined,
+    }
+
+    return Object.values(metadata).some((value) => value !== undefined && value !== '')
+      ? metadata
+      : null
+  } catch {
+    return null
+  }
 }
 
 declare global {
@@ -102,6 +348,51 @@ function parseUpiString(data: string): ParsedUpiData | null {
   }
 }
 
+function parseQrScanPayload(decodedText: string): ParsedMerchantScanData | null {
+  const structured = parseStructuredMerchantMetadata(decodedText)
+  if (structured) {
+    const merchantName = structured.merchantName || structured.upiId || 'Merchant'
+    const resolved: ParsedMerchantScanData = {
+      kind: 'structured',
+      merchantName,
+      upiId: structured.upiId,
+      category: structured.category,
+      subcategory: structured.subcategory,
+      city: structured.city,
+      state: structured.state,
+      merchantType: structured.merchantType,
+      merchantId: structured.merchantId,
+      verified: structured.verified,
+      rawText: decodedText,
+    }
+
+    if (isDemoMerchantValue(resolved.merchantName) || isDemoMerchantValue(resolved.upiId) || isDemoMerchantValue(resolved.merchantId)) {
+      return applyDemoMerchantMetadata(resolved)
+    }
+
+    return resolved
+  }
+
+  const parsedUpi = parseUpiString(decodedText)
+  if (!parsedUpi || !parsedUpi.pa) return null
+
+  if (isDemoMerchantValue(parsedUpi.pa) || isDemoMerchantValue(parsedUpi.pn) || isDemoMerchantValue(decodedText)) {
+    return applyDemoMerchantMetadata({
+      kind: 'upi',
+      upi: parsedUpi,
+      rawText: decodedText,
+    })
+  }
+
+  return {
+    kind: 'upi',
+    merchantName: parsedUpi.pn || parsedUpi.pa,
+    upiId: parsedUpi.pa,
+    upi: parsedUpi,
+    rawText: decodedText,
+  }
+}
+
 export const ScanPayPage: React.FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -109,32 +400,51 @@ export const ScanPayPage: React.FC = () => {
 
   const [scannerActive, setScannerActive] = useState(false)
   const [cameraPermission, setCameraPermission] = useState<'prompt' | 'granted' | 'denied'>('prompt')
-  const [scannedData, setScannedData] = useState<ParsedUpiData | null>(null)
+  const [scannedData, setScannedData] = useState<ParsedMerchantScanData | null>(null)
   const [paymentStep, setPaymentStep] = useState<'scanning' | 'details' | 'processing' | 'success' | 'failed'>('scanning')
   const [paymentResult, setPaymentResult] = useState<any>(null)
   const razorpayLoadingRef = useRef(false)
   const [scanError, setScanError] = useState<string | null>(null)
+  const [isUploadProcessing, setIsUploadProcessing] = useState(false)
   const razorpayObserverRef = useRef<MutationObserver | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const scanIntervalRef = useRef<number | null>(null)
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null)
   const isProcessingRef = useRef(false)
+  const cameraStartingRef = useRef(false)
+  const cameraStartSeqRef = useRef(0)
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
     reset,
     setValue,
   } = useForm<PaymentFormData>({
     defaultValues: { amount: '', merchant: '', description: '' },
   })
 
-  const amount = watch('amount')
+  const buildMetadataNotes = useCallback((merchantName: string, upiId?: string) => {
+    if (!scannedData) return undefined
+
+    const notes: Record<string, string> = {}
+    if (scannedData.merchantId) notes.merchantId = scannedData.merchantId
+    if (scannedData.merchantName) notes.merchantName = scannedData.merchantName
+    if (scannedData.upiId) notes.upiId = scannedData.upiId
+    if (scannedData.category) notes.category = scannedData.category
+    if (scannedData.subcategory) notes.subcategory = scannedData.subcategory
+    if (scannedData.city) notes.city = scannedData.city
+    if (scannedData.state) notes.state = scannedData.state
+    if (scannedData.merchantType) notes.merchantType = scannedData.merchantType
+    if (typeof scannedData.verified === 'boolean') notes.verified = scannedData.verified ? 'true' : 'false'
+    notes.merchant = merchantName
+    if (upiId) notes.upiId = upiId
+    return Object.keys(notes).length ? notes : undefined
+  }, [scannedData])
 
   // Load Razorpay on demand (not eagerly) to avoid SDK console noise
   const loadRazorpayScript = useCallback((): Promise<void> => {
@@ -216,10 +526,12 @@ export const ScanPayPage: React.FC = () => {
       document.body.appendChild(hiddenDiv)
     }
     html5QrcodeRef.current = new Html5Qrcode('qr-hidden-scanner')
+    html5QrcodeRefGlobal.current = html5QrcodeRef.current
     return () => {
       if (html5QrcodeRef.current) {
         try { html5QrcodeRef.current.clear() } catch {}
       }
+      html5QrcodeRefGlobal.current = null
       hiddenDiv?.remove()
     }
   }, [])
@@ -233,6 +545,13 @@ export const ScanPayPage: React.FC = () => {
   }, [paymentStep])
 
   const startCamera = useCallback(async () => {
+    if (cameraStartingRef.current) return
+    if (streamRef.current && videoRef.current?.srcObject) {
+      return
+    }
+
+    cameraStartingRef.current = true
+    const startSeq = ++cameraStartSeqRef.current
     setScanError(null)
     isProcessingRef.current = false
     try {
@@ -250,24 +569,42 @@ export const ScanPayPage: React.FC = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         videoRef.current.setAttribute('playsinline', 'true')
-        await videoRef.current.play()
+        const playPromise = videoRef.current.play()
+        if (playPromise) {
+          await playPromise.catch((error: any) => {
+            if (error?.name === 'AbortError' && startSeq !== cameraStartSeqRef.current) {
+              return
+            }
+            throw error
+          })
+        }
+        if (startSeq !== cameraStartSeqRef.current) return
         setScannerActive(true)
         startScanningFrames()
       }
     } catch (err: any) {
+      if (startSeq !== cameraStartSeqRef.current) return
       console.error('Camera error:', err)
       if (err.name === 'NotAllowedError' || err.message?.includes('Permission')) {
         setCameraPermission('denied')
         setScanError('Camera permission denied. Please allow camera access.')
+      } else if (err.name === 'AbortError') {
+        setScanError(null)
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setScanError('No camera found on this device.')
       } else {
         setScanError('Unable to access camera. Please try again.')
       }
+    } finally {
+      if (startSeq === cameraStartSeqRef.current) {
+        cameraStartingRef.current = false
+      }
     }
   }, [])
 
   const stopCamera = useCallback(() => {
+    cameraStartSeqRef.current += 1
+    cameraStartingRef.current = false
     // Stop scanning interval
     if (scanIntervalRef.current) {
       clearInterval(scanIntervalRef.current)
@@ -332,13 +669,13 @@ export const ScanPayPage: React.FC = () => {
 
     stopCamera()
 
-    const parsed = parseUpiString(decodedText)
+    const parsed = parseQrScanPayload(decodedText)
 
-    if (parsed && parsed.pa) {
+    if (parsed) {
       setScannedData(parsed)
-      if (parsed.pn) setValue('merchant', parsed.pn)
-      if (parsed.am) setValue('amount', parsed.am)
-      if (parsed.tn) setValue('description', parsed.tn)
+      setValue('merchant', parsed.merchantName)
+      if (parsed.kind === 'upi' && parsed.upi?.am) setValue('amount', parsed.upi.am)
+      if (parsed.kind === 'upi' && parsed.upi?.tn) setValue('description', parsed.upi.tn)
       setPaymentStep('details')
       toast.success('QR Code scanned successfully!', { icon: '✅' })
     } else {
@@ -356,19 +693,39 @@ export const ScanPayPage: React.FC = () => {
     if (!file) return
 
     try {
+      setIsUploadProcessing(true)
+      setScanError(null)
       stopCamera()
-      if (!html5QrcodeRef.current) return
+      isProcessingRef.current = true
 
-      const result = await html5QrcodeRef.current.scanFile(file, true)
+      const image = await fileToImageBitmap(file)
+      if (isLikelyBlurry(image)) {
+        setScanError('QR Code is unclear. Please upload a clearer image.')
+        return
+      }
+
+      const result = await decodeQrImageFile(file)
       handleScanResult(result)
-    } catch {
+    } catch (error: any) {
+      const message = error?.message || ''
+      if (message.includes('clearer image')) {
+        setScanError('QR Code is unclear. Please upload a clearer image.')
+      } else if (message.includes('Unable to read this QR')) {
+        setScanError('Unable to read this QR. Please try another image.')
+      } else {
+        setScanError('No QR Code Detected')
+      }
       toast.error('Could not read QR code from image. Try again.')
       isProcessingRef.current = false
-      startCamera()
+      if (paymentStep === 'scanning' && !streamRef.current) {
+        startCamera()
+      }
+    } finally {
+      setIsUploadProcessing(false)
     }
     // Reset file input so the same file can be selected again
     e.target.value = ''
-  }, [stopCamera, handleScanResult, startCamera])
+  }, [stopCamera, handleScanResult, startCamera, paymentStep])
 
   // Create order mutation
   const createOrderMutation = useMutation({
@@ -377,6 +734,7 @@ export const ScanPayPage: React.FC = () => {
         amount: parseFloat(data.amount),
         merchant: data.merchant,
         description: data.description,
+        notes: buildMetadataNotes(data.merchant, scannedData?.upiId || scannedData?.upi?.pa),
       }),
     onSuccess: (response) => {
       if (response.success && response.data) {
@@ -421,18 +779,19 @@ export const ScanPayPage: React.FC = () => {
       toast.error('Payment gateway not loaded. Please refresh.')
       return
     }
+    const metadataNotes = buildMetadataNotes(orderData.merchant || scannedData?.merchantName || '', scannedData?.upiId || scannedData?.upi?.pa)
     const options = {
       key: orderData.keyId,
       amount: orderData.amount,
       currency: orderData.currency || 'INR',
       name: 'FinPal',
-      description: `Payment to ${scannedData?.pn || orderData.merchant}`,
+      description: `Payment to ${scannedData?.merchantName || orderData.merchant}`,
       order_id: orderData.orderId,
       prefill: {
         name: user?.fullName || '',
         email: user?.email || '',
         contact: user?.phone || '',
-        ...(scannedData?.pa ? { vpa: scannedData.pa } : {}),
+        ...(scannedData?.upiId ? { vpa: scannedData.upiId } : {}),
       },
       handler: function (response: any) {
         setPaymentStep('processing')
@@ -443,8 +802,9 @@ export const ScanPayPage: React.FC = () => {
         })
       },
       notes: {
-        merchant: scannedData?.pn || orderData.merchant || '',
-        upiVpa: scannedData?.pa || '',
+        merchant: scannedData?.merchantName || orderData.merchant || '',
+        upiVpa: scannedData?.upiId || scannedData?.upi?.pa || '',
+        ...(metadataNotes || {}),
       },
       theme: { color: '#4f46e5' },
       modal: {
@@ -506,6 +866,15 @@ export const ScanPayPage: React.FC = () => {
       {/* ========== SCANNING VIEW ========== */}
       {paymentStep === 'scanning' && (
         <div className="flex-1 flex flex-col">
+          {isUploadProcessing && (
+            <div className="absolute inset-x-0 top-0 z-30 flex justify-center pt-24 pointer-events-none">
+              <div className="flex items-center gap-3 rounded-full bg-black/75 px-4 py-2 text-white shadow-lg backdrop-blur-sm">
+                <Loader2 size={16} className="animate-spin" />
+                <span className="text-sm font-medium">Decoding QR image...</span>
+              </div>
+            </div>
+          )}
+
           {/* Scanner Area */}
           <div className="flex-1 relative overflow-hidden bg-black">
             {/* Full-screen video feed */}
@@ -589,33 +958,40 @@ export const ScanPayPage: React.FC = () => {
           {/* Bottom controls */}
           <div className="relative z-10 px-4 pb-8 pt-4 bg-gradient-to-t from-black via-black/90 to-transparent -mt-16">
             <p className="text-gray-300 text-sm text-center mb-5">
-              Point your camera at a UPI QR code
+              Choose how you want to scan the QR
             </p>
-            <div className="flex items-center justify-center gap-8">
-              <label className="flex flex-col items-center gap-1.5 cursor-pointer group">
-                <div className="w-14 h-14 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/25 transition active:scale-90">
-                  <Image size={22} className="text-white" />
-                </div>
-                <span className="text-[11px] text-gray-400">Gallery</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
-              </label>
+            <div className="grid grid-cols-2 gap-3">
               <button
+                type="button"
                 onClick={() => {
-                  stopCamera()
-                  setPaymentStep('details')
+                  if (paymentStep === 'scanning' && !scannerActive) startCamera()
+                  else if (scannerActive) toast('Camera scanning is already active', { icon: '📷' })
                 }}
-                className="flex flex-col items-center gap-1.5 group"
+                className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-4 text-center text-white transition active:scale-[0.98] hover:bg-white/15"
               >
-                <div className="w-14 h-14 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/25 transition active:scale-90">
-                  <FileText size={22} className="text-white" />
+                <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center">
+                  <Camera size={21} className="text-white" />
                 </div>
-                <span className="text-[11px] text-gray-400">Enter Manually</span>
+                <span className="text-xs font-medium">Scan using Camera</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-4 text-center text-white transition active:scale-[0.98] hover:bg-white/15"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center">
+                  <Image size={21} className="text-white" />
+                </div>
+                <span className="text-xs font-medium">Upload QR Image</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
             </div>
           </div>
         </div>
@@ -633,16 +1009,72 @@ export const ScanPayPage: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-blue-50 rounded-2xl p-4 mb-5 flex items-center gap-3"
+              className="bg-slate-50 rounded-2xl p-4 mb-5 border border-slate-200"
             >
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <QrCode size={24} className="text-blue-600" />
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${scannedData.verified ? 'bg-green-100' : 'bg-blue-100'}`}>
+                    <QrCode size={24} className={scannedData.verified ? 'text-green-600' : 'text-blue-600'} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 truncate text-base">{scannedData.merchantName}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${scannedData.verified ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        <CheckCircle size={11} />
+                        {scannedData.verified ? 'Verified Merchant' : 'Standard Merchant'}
+                      </span>
+                      {scannedData.kind === 'structured' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-700">
+                          Structured QR
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700">
+                          UPI QR fallback
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-800 truncate">{scannedData.pn || 'Merchant'}</p>
-                <p className="text-xs text-gray-500 truncate">{scannedData.pa}</p>
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {scannedData.merchantId && (
+                  <div className="bg-white rounded-xl p-3 border border-slate-200">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Merchant ID</p>
+                    <p className="font-medium text-gray-800 break-all">{scannedData.merchantId}</p>
+                  </div>
+                )}
+                {scannedData.category && (
+                  <div className="bg-white rounded-xl p-3 border border-slate-200">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Category</p>
+                    <p className="font-medium text-gray-800">{scannedData.category}</p>
+                  </div>
+                )}
+                {scannedData.subcategory && (
+                  <div className="bg-white rounded-xl p-3 border border-slate-200">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Sub Category</p>
+                    <p className="font-medium text-gray-800">{scannedData.subcategory}</p>
+                  </div>
+                )}
+                {scannedData.city && (
+                  <div className="bg-white rounded-xl p-3 border border-slate-200">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">City</p>
+                    <p className="font-medium text-gray-800">{scannedData.city}</p>
+                  </div>
+                )}
+                {scannedData.state && (
+                  <div className="bg-white rounded-xl p-3 border border-slate-200">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">State</p>
+                    <p className="font-medium text-gray-800">{scannedData.state}</p>
+                  </div>
+                )}
+                {scannedData.upiId && (
+                  <div className="bg-white rounded-xl p-3 border border-slate-200 col-span-2">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">UPI ID</p>
+                    <p className="font-medium text-gray-800 break-all">{scannedData.upiId}</p>
+                  </div>
+                )}
               </div>
-              <CheckCircle size={20} className="text-green-500 flex-shrink-0" />
             </motion.div>
           )}
 
@@ -661,7 +1093,7 @@ export const ScanPayPage: React.FC = () => {
                   min="1"
                   placeholder="0"
                   className="text-3xl font-bold text-gray-800 bg-transparent border-none outline-none w-full placeholder-gray-300"
-                  autoFocus={!scannedData?.am}
+                  autoFocus={!(scannedData?.kind === 'upi' && scannedData.upi?.am)}
                   {...register('amount', {
                     required: 'Amount is required',
                     min: { value: 1, message: 'Minimum ₹1' },
@@ -702,17 +1134,17 @@ export const ScanPayPage: React.FC = () => {
             </div>
 
             {/* UPI ID from QR */}
-            {scannedData?.pa && (
+            {scannedData?.upiId && (
               <div className="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2.5">
                 <CheckCircle size={14} className="text-green-600" />
-                <span className="text-xs text-green-700 font-medium">Paying to: {scannedData.pa}</span>
+                <span className="text-xs text-green-700 font-medium">Paying to: {scannedData.upiId}</span>
               </div>
             )}
 
             {/* AI Auto-categorize badge */}
             <div className="flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2.5">
               <Sparkles size={14} className="text-blue-600" />
-              <span className="text-xs text-blue-700 font-medium">Auto-categorize &amp; track via AI</span>
+              <span className="text-xs text-blue-700 font-medium">Use QR metadata first, AI fallback only when needed</span>
               <div className="ml-auto w-8 h-5 bg-blue-600 rounded-full flex items-center justify-end px-0.5">
                 <div className="w-4 h-4 bg-white rounded-full" />
               </div>
@@ -728,7 +1160,7 @@ export const ScanPayPage: React.FC = () => {
                 {createOrderMutation.isPending ? (
                   <><Loader2 size={20} className="animate-spin" />Processing...</>
                 ) : (
-                  <><Smartphone size={20} />Pay ₹{amount ? parseFloat(amount).toLocaleString('en-IN') : '0'}</>
+                  <><Smartphone size={20} />Continue</>
                 )}
               </button>
 
@@ -775,37 +1207,35 @@ export const ScanPayPage: React.FC = () => {
               <CheckCircle size={40} className="text-green-600" />
             </motion.div>
             <h2 className="text-2xl font-bold text-gray-800">Payment Successful! 🎉</h2>
-            <p className="text-gray-500 text-sm">Expense auto-recorded &amp; AI categorized</p>
+            <p className="text-gray-500 text-sm">Expense auto-recorded using QR merchant metadata</p>
 
             {paymentResult && (
               <div className="bg-gray-50 rounded-2xl p-4 text-left space-y-2 mx-auto max-w-xs">
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-3">
                   <span className="text-gray-500 text-sm">Amount</span>
                   <span className="font-bold">₹{paymentResult.amount?.toLocaleString('en-IN')}</span>
                 </div>
-                {scannedData?.pn && (
-                  <div className="flex justify-between">
+                {scannedData?.merchantName && (
+                  <div className="flex justify-between gap-3">
                     <span className="text-gray-500 text-sm">Merchant</span>
-                    <span className="font-medium text-gray-700">{scannedData.pn}</span>
+                    <span className="font-medium text-gray-700 text-right">{scannedData.merchantName}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-3">
                   <span className="text-gray-500 text-sm">Category</span>
-                  <span className="font-medium text-blue-600 flex items-center gap-1">
+                  <span className="font-medium text-blue-600 flex items-center gap-1 text-right">
                     <Sparkles size={12} />{paymentResult.category}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-3">
                   <span className="text-gray-500 text-sm">Payment ID</span>
-                  <span className="text-xs text-gray-400 font-mono">{paymentResult.paymentId?.slice(0, 16)}...</span>
+                  <span className="text-xs text-gray-400 font-mono text-right">{paymentResult.paymentId?.slice(0, 16)}...</span>
                 </div>
               </div>
             )}
 
             {paymentResult?.budgetAlert && (
-              <div className={`rounded-2xl p-4 text-left max-w-xs mx-auto ${
-                paymentResult.budgetAlert.type === 'exceeded' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-              }`}>
+              <div className={`rounded-2xl p-4 text-left max-w-xs mx-auto ${paymentResult.budgetAlert.type === 'exceeded' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
                   <p className="text-sm">{paymentResult.budgetAlert.message}</p>

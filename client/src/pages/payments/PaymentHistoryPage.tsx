@@ -50,6 +50,7 @@ export const PaymentHistoryPage: React.FC = () => {
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>('captured')
   const [showFilter, setShowFilter] = useState(false)
+  const [selectedPayment, setSelectedPayment] = useState<any | null>(null)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['payment-history', page, statusFilter],
@@ -213,7 +214,8 @@ export const PaymentHistoryPage: React.FC = () => {
                   key={payment._id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white rounded-xl p-4 shadow-sm"
+                  className="bg-white rounded-xl p-4 shadow-sm cursor-pointer active:scale-[0.99] transition-transform"
+                  onClick={() => setSelectedPayment(payment)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -290,6 +292,87 @@ export const PaymentHistoryPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {selectedPayment && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4" onClick={() => setSelectedPayment(null)}>
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Merchant Details</p>
+                <h3 className="text-xl font-bold text-gray-900">{selectedPayment.merchant || 'Merchant'}</h3>
+              </div>
+              <button onClick={() => setSelectedPayment(null)} className="p-2 -mr-2 text-gray-400 hover:text-gray-600">
+                <XCircle size={22} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl border border-gray-200 p-3">
+                <p className="text-xs text-gray-400 mb-1">Merchant ID</p>
+                <p className="font-medium text-gray-800 break-all">{selectedPayment.merchantId || '-'}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-3">
+                <p className="text-xs text-gray-400 mb-1">Verification Status</p>
+                <p className={`font-medium ${selectedPayment.merchantVerified ? 'text-green-600' : 'text-gray-700'}`}>
+                  {selectedPayment.verificationStatus === 'verified' || selectedPayment.merchantVerified ? 'Verified Merchant' : 'Standard Merchant'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-3">
+                <p className="text-xs text-gray-400 mb-1">Category</p>
+                <p className="font-medium text-gray-800">{selectedPayment.merchantCategory || selectedPayment.category || '-'}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-3">
+                <p className="text-xs text-gray-400 mb-1">Subcategory</p>
+                <p className="font-medium text-gray-800">{selectedPayment.merchantSubcategory || selectedPayment.subcategory || '-'}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-3">
+                <p className="text-xs text-gray-400 mb-1">UPI ID</p>
+                <p className="font-medium text-gray-800 break-all">{selectedPayment.merchantUpiId || selectedPayment.vpa || '-'}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-3">
+                <p className="text-xs text-gray-400 mb-1">Location</p>
+                <p className="font-medium text-gray-800">{[selectedPayment.merchantCity, selectedPayment.merchantState].filter(Boolean).join(', ') || '-'}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-3">
+                <p className="text-xs text-gray-400 mb-1">Amount</p>
+                <p className="font-medium text-gray-800">₹{selectedPayment.amount?.toLocaleString('en-IN')}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-3">
+                <p className="text-xs text-gray-400 mb-1">Date / Time</p>
+                <p className="font-medium text-gray-800">
+                  {new Date(selectedPayment.paidAt || selectedPayment.createdAt).toLocaleString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
+            </div>
+
+            {selectedPayment.description && (
+              <div className="mt-3 rounded-xl border border-gray-200 p-3">
+                <p className="text-xs text-gray-400 mb-1">Note</p>
+                <p className="font-medium text-gray-800">{selectedPayment.description}</p>
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setSelectedPayment(null)}
+                className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800"
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

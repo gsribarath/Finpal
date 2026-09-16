@@ -625,7 +625,7 @@ export const BudgetPage: React.FC = () => {
                     : 0
                   
                   // Check if this month has a budget
-                  const hasBudget = budget.budgetExists === true;
+                  const hasBudget = budget.totalBudget > 0;
                   const monthKey = `${budget.year}-${budget.month}-${budget._id || 'missing'}`;
 
                   return (

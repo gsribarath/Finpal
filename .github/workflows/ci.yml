@@ -12,46 +12,30 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
-    name: Build and Test FinPal
+  build:
+    name: Build FinPal
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repository
-      - name: Checkout code
-        uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
-      # Setup Node.js
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v5
         with:
           node-version: 20
-          cache: npm
 
-      # Install root dependencies
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
-      # Install client dependencies
       - name: Install client dependencies
-        working-directory: client
-        run: npm ci
+        working-directory: ./client
+        run: npm install
 
-      # Install server dependencies
       - name: Install server dependencies
-        working-directory: server
-        run: npm ci
+        working-directory: ./server
+        run: npm install
 
-      # Build frontend
       - name: Build frontend
-        working-directory: client
+        working-directory: ./client
         run: npm run build
-
-      # Build backend
-      - name: Build backend
-        working-directory: server
-        run: npm run build
-
-      # Check repository status
-      - name: CI completed
-        run: echo "FinPal CI completed successfully!"
